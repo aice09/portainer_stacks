@@ -1,0 +1,64 @@
+version: '3'
+services:
+  snipeit:
+    image: snipe/snipe-it:v6.3.0
+    container_name: snipeit
+    restart: unless-stopped
+    volumes:
+      - snipeit:/var/lib/snipeit:rw
+    ports:
+      - '15080:80'
+      - '15443:443'
+    depends_on:
+      - db
+    environment:
+
+      MYSQL_PORT_3306_TCP_ADDR: db
+      MYSQL_PORT_3306_TCP_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: snipeit
+      MYSQL_DATABASE: snipeit
+      MYSQL_USER: snipeit
+      MYSQL_PASSWORD: snipeit
+      APP_URL: "https://serverhostname:15443"
+      APP_DEBUG: 'false'
+      APP_TIMEZONE: Asia/Manila
+      APP_KEY: "base64:V8kXbAxi3CQfoiYh9s7d5tURPEBYXpaD0YiZzjz6JuQ="
+      APP_TRUSTED_PROXIES: '*'
+      SECURE_COOKIES: 'true'
+
+  db:
+    container_name: snipeit_db
+    image: mariadb:10.11
+    restart: unless-stopped
+    volumes:
+      - db:/var/lib/mysql:rw
+    environment:
+      MARIADB_ROOT_PASSWORD: snipeit
+      MARIADB_DATABASE: snipeit
+      MARIADB_USER: snipeit
+      MARIADB_PASSWORD: snipeit
+
+  db_adm:
+    container_name: snipeit_adminer
+    image: adminer
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - '15081:8080'
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana:/var/lib/grafana
+      - grafana_conf:/usr/share/grafana/conf
+
+volumes:
+  snipeit:
+  db:
+  grafana:
+  grafana_conf:
