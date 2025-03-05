@@ -1,0 +1,155 @@
+version: '3.9'
+
+networks:
+  snipeit_network:
+    driver: bridge
+    
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx_index
+    restart: unless-stopped
+    volumes:
+      - /opt/snipeit/index.html:/usr/share/nginx/html/index.html:ro
+      - /opt/snipeit/ssl/snipeit.cer:/etc/nginx/ssl/snipeit.cer:ro
+      - /opt/snipeit/ssl/snipeit.key:/etc/nginx/ssl/snipeit.key:ro
+      - /opt/snipeit/nginx.conf:/etc/nginx/nginx.conf:ro
+
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - snipeit_network
+    depends_on:
+      - snipeit_dc
+      - snipeit_is
+  snipeit_dc:
+    image: snipe/snipe-it:v8.0.2
+    container_name: snipeit_dc
+    restart: unless-stopped
+    volumes:
+      - snipeit_dc:/var/lib/snipeit:rw      
+        #      - /opt/snipeit/ssl:/ssl:ro
+      - /opt/snipeit/ssl/snipeit.crt:/var/lib/snipeit/ssl/snipeit-ssl.crt:ro
+      - /opt/snipeit/ssl/snipeit.key:/var/lib/snipeit/ssl/snipeit-ssl.key:ro
+    ports:
+      - 81:443
+    networks:
+      - snipeit_network
+    depends_on:
+      - db_dc
+    environment:
+      MYSQL_PORT_3306_TCP_ADDR: db_dc
+      MYSQL_PORT_3306_TCP_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: snipeit
+      MYSQL_DATABASE: snipeit_dc
+      MYSQL_USER: snipeit
+      MYSQL_PASSWORD: snipeit
+      APP_URL: "https://ptc-vm-invt01:81"
+      APP_FORCE_SSL: true
+      APP_DEBUG: 'false'
+      APP_TIMEZONE: Asia/Manila
+      APP_KEY: "base64:xF301ND44riD9C0jfOZnaYH2nZPhGNQRphE6Q/6jAeQ="
+      APP_TRUSTED_PROXIES: '*'
+      SECURE_COOKIES: 'true'
+      MAIL_DRIVER: smtp
+      MAIL_HOST: mx.microchip.com
+      MAIL_PORT: 25 
+      MAIL_ENCRYPTION: null
+      MAIL_FROM_ADDR: "ptc-vm-invt-dc@microchip.com"
+      MAIL_FROM_NAME: "PTC DC Inventory System"
+
+  snipeit_is:
+    image: snipe/snipe-it:v8.0.2
+    container_name: snipeit_is
+    restart: unless-stopped
+    volumes:
+      - snipeit_is:/var/lib/snipeit:rw     
+        #      - /opt/snipeit/ssl:/ssl:ro
+      - /opt/snipeit/ssl/snipeit.cer:/var/lib/snipeit/ssl/snipeit-ssl.crt:ro
+      - /opt/snipeit/ssl/snipeit.key:/var/lib/snipeit/ssl/snipeit-ssl.key:ro
+    ports:
+      - 82:443
+    networks:
+      - snipeit_network
+    depends_on:
+      - db_is
+    environment:
+      MYSQL_PORT_3306_TCP_ADDR: db_is
+      MYSQL_PORT_3306_TCP_PORT: '3306'
+      MYSQL_ROOT_PASSWORD: snipeit
+      MYSQL_DATABASE: snipeit_is
+      MYSQL_USER: snipeit
+      MYSQL_PASSWORD: snipeit
+      APP_URL: "https://ptc-vm-invt01:82"
+      APP_DEBUG: 'false'
+      APP_TIMEZONE: Asia/Manila
+      APP_KEY: "base64:aeTbxr8nQmd0kLY4U7J38SOufb/naQWzHyLMDZxqtfE="
+      APP_TRUSTED_PROXIES: '*'
+      SECURE_COOKIES: 'true'
+      MAIL_DRIVER: smtp
+      MAIL_HOST: mx.microchip.com
+      MAIL_PORT: 25 
+      MAIL_ENCRYPTION: null
+      MAIL_FROM_ADDR: "ptc-vm-invt-is@microchip.com"
+      MAIL_FROM_NAME: "PTC IS Inventory System"
+
+  db_dc:
+    container_name: snipeit_db_dc
+    image: mariadb:10.11
+    restart: unless-stopped
+    volumes:
+      - db_dc:/var/lib/mysql:rw
+    environment:
+      MARIADB_ROOT_PASSWORD: snipeit
+      MARIADB_DATABASE: snipeit_dc
+      MARIADB_USER: snipeit
+      MARIADB_PASSWORD: snipeit
+    networks:
+      - snipeit_network
+
+  db_is:
+    container_name: snipeit_db_is
+    image: mariadb:10.11
+    restart: unless-stopped
+    volumes:
+      - db_is:/var/lib/mysql:rw
+    environment:
+      MARIADB_ROOT_PASSWORD: snipeit
+      MARIADB_DATABASE: snipeit_is
+      MARIADB_USER: snipeit
+      MARIADB_PASSWORD: snipeit
+    networks:
+      - snipeit_network
+
+  db_adm:
+    container_name: snipeit_adminer
+    image: adminer
+    restart: unless-stopped
+    depends_on:
+      - db_dc
+      - db_is
+    ports:
+      - '8080:8080'
+    networks:
+      - snipeit_network
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana:/var/lib/grafana
+      - grafana_conf:/usr/share/grafana/conf
+    networks:
+      - snipeit_network
+
+volumes:
+  snipeit_dc:
+  snipeit_is:
+  db_dc:
+  db_is:
+  grafana:
+  grafana_conf:
